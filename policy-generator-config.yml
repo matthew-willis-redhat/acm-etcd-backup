@@ -10,16 +10,11 @@ policyDefaults:
   policySets:
     - etcd-backup
   severity: medium
-
-
 policies:
-
   - name: etcd-backup
     manifests:
       - path: etcd-backup/
-
 policySets:
-
   - name: etcd-backup
     description: "Perform automated backups of etcd"
     policies:
