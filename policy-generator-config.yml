@@ -1,0 +1,25 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: PolicyGenerator
+metadata:
+  name: policy-openshift-acs-install
+
+placementBindingDefaults:
+  name: 
+
+policyDefaults:
+  namespace: 
+  remediationAction: enforce
+  
+
+policies:
+  - name: etcd-backup
+    manifests:
+      - path: etcd-backup/
+
+policySets:
+  - name: etcd-backup
+    description: "Perform automated backups of etcd"
+    policies:
+      - etcd-backup
+    placement:
+      placementRuleName: "post-deployment-clusters"
