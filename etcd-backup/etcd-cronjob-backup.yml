@@ -2,7 +2,7 @@ kind: CronJob
 apiVersion: batch/v1
 metadata:
   name: cronjob-etcd-backup
-  namespace: etcd-backup
+  namespace: default
   labels:
     app.kubernetes.io/name: cronjob-etcd-backup
 spec:
@@ -39,7 +39,27 @@ spec:
               - /bin/bash
               - '-c'
               - >-
-                echo -e 'Cluster Name: ${cluster_name}'
+                echo -e '\n\n---\nCreate etcd backup local to master\n' &&
+                chroot /host /usr/local/bin/cluster-backup.sh '/home/core/backup/$(date "+%F_%H%M%S")-${cluster_name}' &&
+                echo -e '\n\n---\nCleanup old local etcd backups\n' &&
+                chroot /host find /home/core/backup/ -type d -mmin +"5" -exec rm -rv {} \; &&
+                echo -e '\n\n---\nSending backups to external storage\n' &&
+                dateValue=$(date -R) &&
+                contentType="" &&
+                ocpenv='${cluster_name}'
+                while true; do
+                  if [[ $(find /host/home/core/backup/ -type d -cmin -1 | wc -c) -ne 0 ]]; then
+                    for file in $(find /host/home/core/backup/* -type f); do
+                      [ -e "$file" ] || continue
+                      resource="${ocpenv}/${file}"
+                      stringToSign="PUT\n\n${contentType}\n${dateValue}\n${resource}"
+                      signature=$(echo -en ${stringToSign} | openssl sha1 -hmac ${AWS_SECRET_ACCESS_KEY} -binary | base64)
+                      echo -e '\n+++Sending file+++\n'
+                      curl -X PUT -T "${file}" -H "Host: externalStorageUrl/bucketName" -H "Date: ${dateValue}" -H "Content-Type: ${contentType}" -H "Authorization: AWS ${AWS_ACCESS_KEY_ID}:${signature}" -L https://externalstorageurl/bucket/${ocpenv}/${file}
+                    done
+                    break
+                  fi
+                done
               securityContext:
                 privileged: true
                 runAsUser: 0
