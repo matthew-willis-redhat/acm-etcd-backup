@@ -39,7 +39,7 @@ spec:
               - /bin/bash
               - '-c'
               - >-
-                echo -e 'Cluster Name: ${cluster_name}'
+                echo -e 'Cluster Name: ${cluster_name}' &&
                 echo -e '{{ fromClusterClaim "name" }}'
               securityContext:
                 privileged: true
