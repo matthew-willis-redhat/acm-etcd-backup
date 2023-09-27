@@ -2,7 +2,7 @@ kind: CronJob
 apiVersion: batch/v1
 metadata:
   name: cronjob-etcd-backup
-  namespace: default
+  namespace: etcd-backup
   labels:
     app.kubernetes.io/name: cronjob-etcd-backup
 spec:
