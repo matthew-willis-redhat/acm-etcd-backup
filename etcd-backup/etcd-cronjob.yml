@@ -40,7 +40,7 @@ spec:
               - '-c'
               - >-
                 echo -e 'Cluster Name: ${cluster_name}' &&
-                echo -e '{{ fromClusterClaim "name" }}'
+                echo -e 'Cluster Name: {{ fromClusterClaim "name" }}'
               securityContext:
                 privileged: true
                 runAsUser: 0
