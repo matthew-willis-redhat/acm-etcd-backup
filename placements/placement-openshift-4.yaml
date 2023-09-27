@@ -5,3 +5,5 @@ metadata:
   namespace: etcd-backup-policies
   labels:
     openshiftVersion-major: 4
+spec:
+  clusterSelector:
