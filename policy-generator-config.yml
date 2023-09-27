@@ -1,15 +1,15 @@
 apiVersion: policy.open-cluster-management.io/v1
 kind: PolicyGenerator
 metadata:
-  name: policy-openshift-acs-install
-
+  name: policy-openshift-etcd-backup
 placementBindingDefaults:
-  name: 
-
+  name: "etcd-backup-binding"
 policyDefaults:
-  namespace: 
+  namespace: etcd-backup-policies
   remediationAction: enforce
-  
+  policySets:
+    - etcd-backup
+  severity: medium
 
 policies:
   - name: etcd-backup
@@ -22,4 +22,4 @@ policySets:
     policies:
       - etcd-backup
     placement:
-      placementRuleName: "post-deployment-clusters"
+      placementRulePath: "placements/placement-openshift-4.yaml"

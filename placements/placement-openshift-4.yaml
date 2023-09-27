@@ -1,0 +1,7 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  name: placement-openshift-4
+  namespace: etcd-backup-policies
+  labels:
+    openshiftVersion-major: 4
