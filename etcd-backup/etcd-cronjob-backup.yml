@@ -2,7 +2,7 @@ kind: CronJob
 apiVersion: batch/v1
 metadata:
   name: cronjob-etcd-backup
-  namespace: default
+  namespace: etcd-backup
   labels:
     app.kubernetes.io/name: cronjob-etcd-backup
 spec:
@@ -37,25 +37,31 @@ spec:
               terminationMessagePath: /dev/termination-log
               command:
               - /bin/bash
-              - '-c'
-              - >-
-                echo -e '\n\n---\nCreate etcd backup local to master\n' &&
-                chroot /host /usr/local/bin/cluster-backup.sh '/home/core/backup/$(date "+%F_%H%M%S")-${cluster_name}' &&
-                echo -e '\n\n---\nCleanup old local etcd backups\n' &&
-                chroot /host find /home/core/backup/ -type d -mmin +"5" -exec rm -rv {} \; &&
-                echo -e '\n\n---\nSending backups to external storage\n' &&
-                dateValue=$(date -R) &&
-                contentType="" &&
-                ocpenv='${cluster_name}'
+              - -c
+              - |
+                #!/usr/bin/env bash
+                dateValue=$(date -R)
+                contentType=""
+                baseResourceDir=""
+                hostBucket=""
+                destinationBucketLocation=""
+                cluster='{{ fromClusterClaim "name" }}'
+                echo -e '\n\n---\nCleanup previous local etcd backups on local host\n'
+                chroot /host find /home/core/backup/ -type d -mmin +"3" -exec rm -rf {} \;
+                echo -e '\n\n---\nCreate etcd backup local to master\n'
+                chroot /host /usr/local/bin/cluster-backup.sh /home/core/backup/$cluster
+                echo -e '\n\n---\nFinding backup files to send to external storage\n'
                 while true; do
-                  if [[ $(find /host/home/core/backup/ -type d -cmin -1 | wc -c) -ne 0 ]]; then
-                    for file in $(find /host/home/core/backup/* -type f); do
-                      [ -e "$file" ] || continue
-                      resource="${ocpenv}/${file}"
+                  if [[ $(find /host/home/core/backup/* -type d -cmin -1 | wc -c) -ne 0 ]]; then
+                    for filepath in $(find /host/home/core/backup/* -type f); do
+                      file=$(basename $filepath)                      
+                      resource="${baseResourceDir}${cluster}/${file}"
                       stringToSign="PUT\n\n${contentType}\n${dateValue}\n${resource}"
                       signature=$(echo -en ${stringToSign} | openssl sha1 -hmac ${AWS_SECRET_ACCESS_KEY} -binary | base64)
-                      echo -e '\n+++Sending file+++\n'
-                      curl -X PUT -T "${file}" -H "Host: externalStorageUrl/bucketName" -H "Date: ${dateValue}" -H "Content-Type: ${contentType}" -H "Authorization: AWS ${AWS_ACCESS_KEY_ID}:${signature}" -L https://externalstorageurl/bucket/${ocpenv}/${file}
+                      echo -e '\n+++Sending file to external storage+++'
+                      echo $file
+                      echo -e '\n'
+                      curl -X PUT -T "${filepath}" -H "Host: ${hostBucket}" -H "Date: ${dateValue}" -H "Content-Type: ${contentType}" -H "Authorization: AWS ${AWS_ACCESS_KEY_ID}:${signature}" -L ${destinationBucketLocation}${cluster}/${file}
                     done
                     break
                   fi
@@ -68,8 +74,6 @@ spec:
                     - SYS_CHROOT
               imagePullPolicy: Always
               env:
-              - name: cluster_name
-                value: '{{ fromClusterClaim "name" }}'
               - name: AWS_ACCESS_KEY_ID
                 valueFrom:
                   secretKeyRef:
